@@ -10,7 +10,7 @@ def force(p1, p2, m2):
     dist = sqrt(dx**2 + dy**2 + eps)
 
     F = 0.
-    if dist > 0:
-        F = (gamma_si * m2) / (dist*dist*dist)
+    #if dist > 0:
+    F = (gamma_si * m2) / (dist*dist*dist)
 
     return np.array([F * dx, F * dy])

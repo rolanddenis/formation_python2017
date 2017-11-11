@@ -1,6 +1,7 @@
 import numpy as np
 from ..forces import force
 from . import numba_functions
+import numba
 
 class quadArray:
     def __init__(self, bmin, bmax, size):
@@ -20,6 +21,15 @@ class quadArray:
         self.ncell = numba_functions.buildTree(self.center, self.box_size, self.child, self.cell_center, self.cell_radius, particles)
 
     def computeMassDistribution(self, particles, mass):
+        
+        self.mass = np.zeros(self.nbodies + self.ncell + 1)
+        self.mass[:self.nbodies] = mass
+        self.center_of_mass = np.zeros((self.nbodies + self.ncell + 1, 2))
+        self.center_of_mass[:self.nbodies] = particles[:, :2]
+
+        numba_functions.computeMassDistribution( self.nbodies, self.ncell,
+                self.child, self.mass, self.center_of_mass )
+        """
         self.mass = np.zeros(self.nbodies + self.ncell + 1)
         self.mass[:self.nbodies] = mass
         self.center_of_mass = np.zeros((self.nbodies + self.ncell + 1, 2))
@@ -32,6 +42,7 @@ class quadArray:
             self.center_of_mass[self.nbodies + i] /= self.mass[self.nbodies + i]
         # print('mass', self.mass)
         # print('center_of_mass', self.center_of_mass)
+        """
 
     def computeForce(self, p):
         return numba_functions.computeForce(self.nbodies, self.child, self.center_of_mass, self.mass, self.cell_radius, p)
