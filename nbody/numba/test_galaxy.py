@@ -23,7 +23,7 @@ energy = np.zeros_like(particles)
 
 def animate(i):
     print(i)
-    for t in range(10):
+    for t in range(5):
         t1 = time.time()
         time_method.update(mass, particles)
         t2 = time.time()
