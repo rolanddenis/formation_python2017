@@ -4,10 +4,13 @@
 from OpenGL.GL   import *
 from OpenGL.GLUT import *
 import OpenGL.arrays.vbo as glvbo
+from OpenGL.GL import shaders
 
 import sys
 import math
 from copy import deepcopy
+
+import numpy as np
 
 
 class Axis:
@@ -28,7 +31,7 @@ class Animation:
         http://carloluchessa.blogspot.fr/2012/09/simple-viewer-in-pyopengl.html
     """
 
-    def __init__(self, simu, axis=[0, 1, 0, 1], size=[640, 480], title="Animation"):
+    def __init__(self, simu, axis=[0, 1, 0, 1], size=[640, 480], title="Animation", bloom=False):
         """ Initialize an animation view.
 
         Parameters:
@@ -47,6 +50,7 @@ class Animation:
         self.axis   = Axis( [ axis[0], axis[2] ], max((axis[1]-axis[0])/size[0], (axis[3]-axis[2])/size[1]) )
         self.size   = size
         self.action = None
+        self.bloom  = bloom
 
         # Initialize the OpenGL Utility Toolkit
         glutInit(sys.argv)
@@ -74,6 +78,33 @@ class Animation:
         self.vbo   = glvbo.VBO( coords )
         self.count = coords.shape[0]
 
+        # Shader
+        if bloom:
+            vertex_shader = shaders.compileShader("""
+                uniform float end_fog;
+                uniform vec4 fog_color;
+                void main()
+                {
+                    float fog;
+                    float fog_coord;
+                    float end_fog = 1.;
+                    gl_Position = ftransform();
+                    fog_coord = abs(gl_Position.x);
+                    fog_coord = clamp( fog_coord, 0.0, end_fog);
+                    fog = (end_fog - fog_coord)/end_fog;
+                    fog = clamp( fog, 0.0, 1.0);
+                    gl_FrontColor = mix(vec4(1.,0.,0.,1.), gl_Color, fog);
+                }
+                """, GL_VERTEX_SHADER)
+
+            fragment_shader = shaders.compileShader("""
+                void main()
+                {
+                    gl_FragColor = gl_Color;
+                }
+                """, GL_FRAGMENT_SHADER)
+            
+            self.shader = shaders.compileProgram(vertex_shader, fragment_shader)
 
     def main_loop(self):
         """ Simulation main loop. """
@@ -128,11 +159,73 @@ class Animation:
         self.size  = [ max(width, 1), max(height, 1) ]
 
         # Update the viewport
-        glViewport(0, 0, self.size[0], self.size[1])
-
+        #glViewport(0, 0, self.size[0], self.size[1])
 
     def _draw(self):
+        if self.bloom:
+            # The framebuffer
+            fbo = glGenFramebuffers(1)
+            glBindFramebuffer(GL_FRAMEBUFFER, fbo)
+
+            # The texture we're going to render to
+            texture = glGenTextures(1)
+
+            # Bind the texture to the future draw
+            glBindTexture( GL_TEXTURE_2D, texture )
+            
+            # Empty image
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, self.size[0], self.size[1], 0, GL_RGB, GL_UNSIGNED_BYTE, None)
+
+            # Filtering parameters
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
+            
+            # Associate texture to the framebuffer
+            glFramebufferTexture2D( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0 )
+
+            #DrawBuffers = [GL_COLOR_ATTACHMENT0]
+            #glDrawBuffers(1, DrawBuffers)
+
+            # Drawing stars to the framebuffer
+            self._draw_stars(fbo)
+
+            glBindFramebuffer(GL_FRAMEBUFFER, 0)
+            glViewport(0, 0, self.size[0], self.size[1])
+            glClear(GL_COLOR_BUFFER_BIT)
+
+            # Update perspective transformation
+            glMatrixMode(GL_PROJECTION)
+            glLoadIdentity()
+            glOrtho(0, 1, 0, 1, -1, 1)
+            glBindTexture( GL_TEXTURE_2D, texture )
+            glEnable(GL_TEXTURE_2D)
+            glEnableClientState(GL_VERTEX_ARRAY)
+            glEnableClientState(GL_TEXTURE_COORD_ARRAY)
+
+            Varray = np.array([[0,0],[0,1],[1,1],[1,0]], np.float)
+            glVertexPointer(2, GL_FLOAT, 0, Varray)
+            glTexCoordPointer(2, GL_FLOAT, 0, Varray)
+            glDrawElements(GL_QUADS, 1, GL_UNSIGNED_SHORT, [0, 1, 2, 3])
+            
+
+            glutSwapBuffers()
+
+            #glDeleteTextures(texture)
+            #glDeleteFramebuffers(fbo)
+
+
+        else:
+            # Drawing stars to the screen
+            self._draw_stars(0)
+            glutSwapBuffers()
+
+    def _draw_stars(self, frame_buffer = 0):
         """ Called when the window must be redrawn. """
+        
+        glBindFramebuffer( GL_FRAMEBUFFER, frame_buffer )
+
+        # Set the viewport
+        glViewport(0, 0, self.size[0], self.size[1])
 
         # Clear the buffer
         glClear(GL_COLOR_BUFFER_BIT)
@@ -159,8 +252,44 @@ class Animation:
         # Draw "count" points from the VBO
         glDrawArrays(GL_POINTS, 0, self.count)
 
+        if self.bloom:
+            """
+            fbo = GLuint()
+            glGenFramebuffers(1, fbo)
+            glBindFramebuffer(GL_FRAMEBUFFER, fbo)
+            glow_buffer = glGenTextures(1)
+            glBindTexture( GL_TEXTURE_2D, glow_buffer )
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 480, 480, 0, GL_RGB, GL_UNSIGNED_BYTE, None)
+            glFramebufferTexture2D( GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, glow_buffer, 0 )
+
+            glEnable( GL_TEXTURE_2D )
+            """
+            #glUseProgram(self.shader)
+            pass
+            """
+            glBindTexture( GL_TEXTURE_2D, glow_buffer )
+            glLoadIdentity()
+            glBegin(GL_QUADS)
+            glTexCoord2f(0,0)
+            glVertex2d(-1,-1)
+            glTexCoord2f(1,0)
+            glVertex2d(1,-1)
+            glTexCoord2f(1,1)
+            glVertex2d(1,1)
+            glTexCoord2f(0,1)
+            glVertex2d(-1,1)
+            glEnd()
+
+            glutSwapBuffers()
+            
+            glDeleteTextures(glow_buffer)
+            glDeleteFramebuffers(fbo)
+            """
+
         # Swap display buffers
-        glutSwapBuffers()
+        #glutSwapBuffers()
 
 
 
