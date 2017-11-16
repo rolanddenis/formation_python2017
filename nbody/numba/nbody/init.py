@@ -59,6 +59,8 @@ def init_collisions(blackHole):
             particles[ind, 3] = 0.
         else:
             vxb, vyb = getOrbitalVelocity(blackHole[0]['coord'][0], blackHole[0]['coord'][1], blackHole[0]['mass'], b['coord'][0], b['coord'][1])
+            #vxb = -1e-2
+            #vyb = 0
             particles[ind, 2] = b['svel']*vxb
             particles[ind, 3] = b['svel']*vyb
         ind += 1

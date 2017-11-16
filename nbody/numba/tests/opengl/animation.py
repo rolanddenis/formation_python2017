@@ -4,6 +4,7 @@
 from OpenGL.GL   import *
 from OpenGL.GLUT import *
 import OpenGL.arrays.vbo as glvbo
+from OpenGL.GL import shaders
 
 import sys
 import math
@@ -92,6 +93,27 @@ class Animation:
 
         # Paused ?
         self.is_paused = start_paused
+            
+        vertex_shader = shaders.compileShader("""
+            uniform float scale;
+            void main()
+            {
+                gl_Position = ftransform();
+                vec4 color = gl_Color;
+                color[3] = min(1., color[3]*scale);
+                //gl_FrontColor = mix(color, gl_Color, scale ); 
+                gl_FrontColor = color;
+            } 
+            """, GL_VERTEX_SHADER)
+
+        fragment_shader = shaders.compileShader("""
+            void main()
+            {
+                gl_FragColor = gl_Color;
+            }
+            """, GL_FRAGMENT_SHADER)
+        
+        self.shader = shaders.compileProgram(vertex_shader, fragment_shader)
 
 
     def main_loop(self):
@@ -258,6 +280,7 @@ class Animation:
         glEnable(GL_BLEND)
         glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA)
 
+
         # Clear the buffer
         glClear(GL_COLOR_BUFFER_BIT)
 
@@ -267,6 +290,14 @@ class Animation:
         glOrtho(self.axis.origin[0], self.axis.origin[0] + self.axis.scale * self.size[0],
                 self.axis.origin[1], self.axis.origin[1] + self.axis.scale * self.size[1],
                 -1, 1)
+
+        glUseProgram(self.shader)
+        #glUniform1f( glGetUniformLocation(self.shader, 'scale'), np.float32(max(0.01, 2e-3/(self.axis.scale**2))))
+        #glUniform1f( glGetUniformLocation(self.shader, 'scale'), np.float32(max(0.01, 2e-1/math.sqrt(self.axis.scale))))
+        
+        glUniform1f( glGetUniformLocation(self.shader, 'scale'), np.float32(max(0.01, 4e-2/self.axis.scale)))
+
+        #glUniform1f( glGetUniformLocation(self.shader, 'scale'), np.float32(1-math.exp(-1e3*self.axis.scale)))
 
         # Background color
         glClearColor(0., 0., 0., 0.)
