@@ -191,6 +191,8 @@ class Animation:
 
         if value and not hasattr(self, '_ao_shader_program'):
             # Try except ?
+            glEnable(GL_PROGRAM_POINT_SIZE)
+            glEnable(GL_POINT_SPRITE)
             vertex_shader = shaders.compileShader("""
                 uniform float scale;
                 void main()
@@ -198,13 +200,19 @@ class Animation:
                     gl_Position = ftransform();
                     gl_FrontColor = gl_Color;
                     gl_FrontColor[3] = min(1., gl_FrontColor[3]*scale);
+                    gl_PointSize = max(1., 11.*scale);
                 }
                 """, GL_VERTEX_SHADER)
 
             fragment_shader = shaders.compileShader("""
+                #version 120
+                uniform float scale;
                 void main()
                 {
                     gl_FragColor = gl_Color;
+                    float dist = length(gl_PointCoord - vec2(0.5, 0.5));
+                    if (dist > 0.6/(11.*scale))
+                        gl_FragColor[3] = max(0., 5e-3/dist - 0.01);
                 }
                 """, GL_FRAGMENT_SHADER)
 
@@ -391,6 +399,9 @@ h: toggle help display""" )
 
     def _activate_adaptative_opacity(self):
         """ Activate the adaptative opacity shader program. """
+
+        glEnable(GL_PROGRAM_POINT_SIZE)
+        glEnable(GL_POINT_SPRITE)
 
         glUseProgram(self._ao_shader_program)
         glUniform1f(glGetUniformLocation(self._ao_shader_program, 'scale'),
