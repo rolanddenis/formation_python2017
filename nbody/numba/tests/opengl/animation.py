@@ -195,12 +195,15 @@ class Animation:
             glEnable(GL_POINT_SPRITE)
             vertex_shader = shaders.compileShader("""
                 uniform float scale;
+                uniform float scale2;
                 void main()
                 {
                     gl_Position = ftransform();
                     gl_FrontColor = gl_Color;
                     gl_FrontColor[3] = min(1., gl_FrontColor[3]*scale);
-                    gl_PointSize = max(1., 11.*scale);
+                    gl_PointSize = max(1., 21.*scale);
+                    gl_Position -= vec4(1.,1.,0.,0.)*gl_PointSize*scale2 * 0.5;
+                    //gl_Position -= vec4(1.,1.,0.,0.)*gl_PointSize* 0.5;
                 }
                 """, GL_VERTEX_SHADER)
 
@@ -211,12 +214,33 @@ class Animation:
                 {
                     gl_FragColor = gl_Color;
                     float dist = length(gl_PointCoord - vec2(0.5, 0.5));
-                    if (dist > 0.6/(11.*scale))
+                    if (dist > 0.6/(21.*scale))
                         gl_FragColor[3] = max(0., 5e-3/dist - 0.01);
                 }
                 """, GL_FRAGMENT_SHADER)
 
             self._ao_shader_program = shaders.compileProgram(vertex_shader, fragment_shader)
+            
+            vertex_shader2 = shaders.compileShader("""
+                uniform float scale;
+                void main()
+                {
+                    gl_Position = ftransform();
+                    gl_FrontColor = gl_Color;
+                    gl_FrontColor[3] = min(1., gl_FrontColor[3]*scale);
+                    gl_PointSize = 1.;
+                }
+                """, GL_VERTEX_SHADER)
+
+            fragment_shader2 = shaders.compileShader("""
+                #version 120
+                uniform float scale;
+                void main()
+                {
+                    gl_FragColor = gl_Color;
+                }
+                """, GL_FRAGMENT_SHADER)
+            self._ao_shader_program2 = shaders.compileProgram(vertex_shader2, fragment_shader2)
 
 
     @property
@@ -406,6 +430,12 @@ h: toggle help display""" )
         glUseProgram(self._ao_shader_program)
         glUniform1f(glGetUniformLocation(self._ao_shader_program, 'scale'),
                      np.float32(max(0.01, self._ao_factor/self.axis.scale)))
+        glUniform1f(glGetUniformLocation(self._ao_shader_program, 'scale2'),
+                     np.float32(self.axis.scale))
+        glDrawArrays(GL_POINTS, 0, self.count)
+        glUseProgram(self._ao_shader_program2)
+        glUniform1f(glGetUniformLocation(self._ao_shader_program2, 'scale'),
+                     np.float32(max(0.01, self._ao_factor/self.axis.scale)))
 
     def _draw(self):
         """ Called when the window must be redrawn. """
@@ -445,6 +475,12 @@ h: toggle help display""" )
 
         # These vertices contain 2 double precision coordinates
         glVertexPointer(2, GL_DOUBLE, 0, None)
+
+        # Adaptative opacity
+        if self.use_adaptative_opacity:
+            self._activate_adaptative_opacity()
+        else:
+            glUseProgram(0)
 
         # Draw "count" points from the VBO
         glDrawArrays(GL_POINTS, 0, self.count)

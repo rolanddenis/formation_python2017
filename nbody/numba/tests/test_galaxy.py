@@ -5,6 +5,7 @@ import math
 import nbody
 #from nbody.naive import compute_energy
 from nbody.barnes_hut_array import compute_energy
+from nbody.barnes_hut_array import quadArray
 
 def temp2color(temps):
     colors = np.empty( (temps.size, 4) )
@@ -32,10 +33,21 @@ class Galaxy:
         return self.particles[:, :2]
 
     def colors(self):
-        speed_magnitude = np.linalg.norm(self.particles[:, 2:4], axis=1)
-        colors = temp2color( 3000 + 6000*speed_magnitude/speed_magnitude.max() )
-        colors[:,3] = 0.05
-        return colors + np.asarray([0., 0., 0., 0.95]) * np.minimum(self.mass, 20).reshape(-1, 1) / 20
+        if not hasattr(self, '_colors'):
+            speed_magnitude = np.linalg.norm(self.particles[:, 2:4], axis=1)
+            temp_colors = temp2color( 3000 + 6000*speed_magnitude/speed_magnitude.max() )
+            temp_colors[:,3] = 0.05
+            self._colors =  temp_colors + np.asarray([0., 0., 0., 0.95]) * np.minimum(self.mass, 20).reshape(-1, 1) / 20
+
+        bmin = np.min(self.particles[: ,:2], axis=0)
+        bmax = np.max(self.particles[: ,:2], axis=0)
+        root = quadArray(bmin, bmax, self.particles.shape[0])
+        root.buildTree(self.particles)
+        cell_radius = np.linalg.norm(root.cell_radius[root.child[0:self.particles.shape[0]]], axis=1)
+        factor = np.minimum(1., np.exp(-30*cell_radius)-0.1)
+        print( np.min(cell_radius), np.max(cell_radius))
+        print( np.min(factor), np.max(factor))
+        return self._colors + factor.reshape(-1,1)*(np.asarray([1., 0., 0., 1.]) - self._colors)
 
 
 if __name__ == '__main__':
@@ -52,16 +64,19 @@ if __name__ == '__main__':
     np.random.seed(42)
 
     blackHole = [
+                #{'coord': [0, 0], 'mass': 1000000, 'svel': 1, 'stars': 2000, 'radstars': 3},
+                #{'coord': [3, 3], 'mass': 1000000, 'svel': 0.9, 'stars': 1000, 'radstars': 1}
                 {'coord': [0, 0], 'mass': 1000000, 'svel': 1, 'stars': 2000, 'radstars': 3},
-                {'coord': [3, 3], 'mass': 1000000, 'svel': 0.9, 'stars': 1000, 'radstars': 1}
+                {'coord': [10, 8], 'mass': 1000000, 'svel': 1, 'stars': 2000, 'radstars': 3},
                 ]
     sim = Galaxy(blackHole, display_step = args.display_step)
+    sim.colors()
 
     anim = Animation( sim, axis=[-10, 10, -10, 10] )
 
     if args.render == 'opengl':
         anim.use_colors = True
-        anim.update_colors = False
+        anim.update_colors = True
         anim.use_adaptative_opacity = True
 
     anim.main_loop()
