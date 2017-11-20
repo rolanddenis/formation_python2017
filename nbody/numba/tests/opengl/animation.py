@@ -108,6 +108,8 @@ class Animation:
         self.use_fps = True
         self.is_paused = start_paused
 
+        self._test = True
+
     ###########################################################################
     # Properties
 
@@ -240,7 +242,7 @@ class Animation:
                 {
                     gl_Position = ftransform();
                     gl_FrontColor = gl_Color;
-                    gl_FrontColor[3] = min(1., gl_FrontColor[3]*scale);
+                    gl_FrontColor[3] = min(1., gl_FrontColor[3]*scale*0.5);
                     gl_PointSize = 1.;
                 }
                 """, GL_VERTEX_SHADER)
@@ -265,7 +267,7 @@ class Animation:
                 {
                     gl_Position = ftransform();
                     float max_dust_radius = 0.3/scale2;
-                    float star_radius = 1e-4/scale2;
+                    float star_radius = max(0.25f, 1e-4/scale2);
                     float dust_radius = min(max_dust_radius, max(star_radius, star_radius + (max_dust_radius-star_radius) * scale2/0.042));
                     float L = min(1.f, gl_Color[3]*scale);
                     float C = 9e-3f;
@@ -448,6 +450,8 @@ class Animation:
             self.is_paused = not self.is_paused
         elif key == b'h':
             self.use_help = not self.use_help
+        elif key == b's':
+            self._test = not self._test
 
     def _resize(self, width, height):
         """ Called when the window is resized. """
@@ -483,6 +487,7 @@ f: toggle fps display
 c: toggle colors display
 u: toggle colors update
 o: toggle adaptative opacity
+s: toggle star display
 t: track nearest star
 T: disable tracking
 p: pause (or <space>)
@@ -517,10 +522,12 @@ h: toggle help display""")
                      np.float32(max(0.01, self._ao_factor/self.axis.scale)))
         glUniform1f(glGetUniformLocation(self._ao_shader_program3, 'scale2'),
                      np.float32(self.axis.scale))
-        glDrawArrays(GL_POINTS, 0, self.count)
-        glUseProgram(self._ao_shader_program2)
-        glUniform1f(glGetUniformLocation(self._ao_shader_program2, 'scale'),
-                     np.float32(max(0.01, self._ao_factor/self.axis.scale)))
+
+        if self._test:
+            glDrawArrays(GL_POINTS, 0, self.count)
+            glUseProgram(self._ao_shader_program2)
+            glUniform1f(glGetUniformLocation(self._ao_shader_program2, 'scale'),
+                         np.float32(max(0.01, self._ao_factor/self.axis.scale)))
 
     def _draw(self):
         """ Called when the window must be redrawn. """
