@@ -58,10 +58,10 @@ class Galaxy:
     def colors(self):
         if not hasattr(self, '_colors'):
             speed_magnitude = np.linalg.norm(self.particles[:, 2:4], axis=1)
-            temp_colors = temp2color( 3000 + 6000*speed_magnitude/speed_magnitude.max() )
+            temp_colors = temp2color( 3000 + 6000*(speed_magnitude-speed_magnitude.min())/(speed_magnitude.max()-speed_magnitude.min()) )
             temp_colors[:,3] = 0.05
             self._colors =  temp_colors + np.asarray([0., 0., 0., 0.95]) * np.minimum(self.mass, 20).reshape(-1, 1) / 20
-
+        """
         bmin = np.min(self.particles[: ,:2], axis=0)
         bmax = np.max(self.particles[: ,:2], axis=0)
         root = quadArray(bmin, bmax, self.particles.shape[0])
@@ -71,6 +71,8 @@ class Galaxy:
         print( np.min(cell_radius), np.max(cell_radius))
         print( np.min(factor), np.max(factor))
         return self._colors + factor.reshape(-1,1)*(np.asarray([1., 0., 0., 1.]) - self._colors)
+        """
+        return self._colors
 
 
 if __name__ == '__main__':
@@ -87,10 +89,10 @@ if __name__ == '__main__':
     np.random.seed(42)
 
     blackHole = [
-                #{'coord': [0, 0], 'mass': 1000000, 'svel': 1, 'stars': 2000, 'radstars': 3},
-                #{'coord': [3, 3], 'mass': 1000000, 'svel': 0.9, 'stars': 1000, 'radstars': 1}
                 {'coord': [0, 0], 'mass': 1000000, 'svel': 1, 'stars': 2000, 'radstars': 3},
-                {'coord': [10, 8], 'mass': 1000000, 'svel': 1, 'stars': 2000, 'radstars': 3},
+                {'coord': [3, 3], 'mass': 1000000, 'svel': 0.9, 'stars': 1000, 'radstars': 1}
+                #{'coord': [0, 0], 'mass': 1000000, 'svel': 1, 'stars': 2000, 'radstars': 3},
+                #{'coord': [10, 8], 'mass': 1000000, 'svel': 1, 'stars': 2000, 'radstars': 3},
                 ]
     sim = Galaxy(blackHole, display_step = args.display_step)
     sim.colors()

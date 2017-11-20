@@ -254,6 +254,48 @@ class Animation:
                 }
                 """, GL_FRAGMENT_SHADER)
             self._ao_shader_program2 = shaders.compileProgram(vertex_shader2, fragment_shader2)
+            
+            vertex_shader3 = shaders.compileShader("""
+                #version 120
+                uniform float scale;
+                uniform float scale2;
+                varying float a;
+                varying float b;
+                void main()
+                {
+                    gl_Position = ftransform();
+                    float max_dust_radius = 0.3/scale2;
+                    float star_radius = 1e-4/scale2;
+                    float dust_radius = min(max_dust_radius, max(star_radius, star_radius + (max_dust_radius-star_radius) * scale2/0.042));
+                    float L = min(1.f, gl_Color[3]*scale);
+                    float C = 9e-3f;
+                    float D = 0.5f;
+                    float delta = L*(L - 4*C/(star_radius/dust_radius * 0.5f - D));
+                    b = 0.5f * ( L - sqrt(delta) );
+                    a = -C/b - D;
+
+                    gl_PointSize = 2.f * dust_radius;
+                    gl_FrontColor = gl_Color;
+                    gl_FrontColor[3] = L;
+                }
+                """, GL_VERTEX_SHADER)
+
+            fragment_shader3 = shaders.compileShader("""
+                #version 120
+                uniform float scale;
+                varying float a;
+                varying float b;
+                void main()
+                {
+                    gl_FragColor = gl_Color;
+                    float dist = length(gl_PointCoord - vec2(0.5, 0.5));
+                    if ( dist > -a )
+                        gl_FragColor[3] = min(gl_FragColor[3], max(0.f, 9e-3f/(dist + a) + b));
+                    //gl_FragColor[3] = min(1.f, max(0.f, 5e-3f/(dist) - 0.01));
+                }
+                """, GL_FRAGMENT_SHADER)
+
+            self._ao_shader_program3 = shaders.compileProgram(vertex_shader3, fragment_shader3)
 
     @property
     def adaptative_opacity_factor(self):
@@ -470,10 +512,10 @@ h: toggle help display""")
         glEnable(GL_PROGRAM_POINT_SIZE)
         glEnable(GL_POINT_SPRITE)
 
-        glUseProgram(self._ao_shader_program)
-        glUniform1f(glGetUniformLocation(self._ao_shader_program, 'scale'),
+        glUseProgram(self._ao_shader_program3)
+        glUniform1f(glGetUniformLocation(self._ao_shader_program3, 'scale'),
                      np.float32(max(0.01, self._ao_factor/self.axis.scale)))
-        glUniform1f(glGetUniformLocation(self._ao_shader_program, 'scale2'),
+        glUniform1f(glGetUniformLocation(self._ao_shader_program3, 'scale2'),
                      np.float32(self.axis.scale))
         glDrawArrays(GL_POINTS, 0, self.count)
         glUseProgram(self._ao_shader_program2)
