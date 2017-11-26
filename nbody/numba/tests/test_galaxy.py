@@ -5,6 +5,7 @@ import math
 import nbody
 #from nbody.naive import compute_energy
 from nbody.barnes_hut_array import compute_energy
+from nbody.barnes_hut_array import quadArray
 
 def temp2color(temps):
     """ Convert black body temperature to corresponding RGBA color.
@@ -44,6 +45,7 @@ class Galaxy:
         self.time_method = nbody.ADB6(dt, self.particles.shape[0], compute_energy)
         self.display_step = display_step
         self.it = 0
+        self.mean_density = np.zeros(self.particles.shape[0])
 
     def next(self):
         for i in range(self.display_step):
@@ -55,10 +57,25 @@ class Galaxy:
         return self.particles[:, :2]
 
     def colors(self):
+        """
         speed_magnitude = np.linalg.norm(self.particles[:, 2:4], axis=1)
         colors = temp2color( 3000 + 6000*speed_magnitude/speed_magnitude.max() )
         colors[:,3] = 0.05
         return colors + np.asarray([0., 0., 0., 0.95]) * np.minimum(self.mass, 20).reshape(-1, 1) / 20
+        """
+
+        bmin = np.min(self.particles[: ,:2], axis=0)
+        bmax = np.max(self.particles[: ,:2], axis=0)
+        root = quadArray(bmin, bmax, self.particles.shape[0])
+        root.buildTree(self.particles)
+        cell_radius = np.linalg.norm(root.cell_radius[root.child[0:self.particles.shape[0]]], axis=1)
+        self.mean_density += 1e-2*(self.mass/cell_radius - self.mean_density)
+        temps = np.minimum(9000, np.maximum(1001, 9000 - 0.8e3*np.log(self.mean_density)))
+        print( np.min(self.mean_density), np.max(self.mean_density))
+        print( np.min(temps), np.max(temps))
+        colors = temp2color(temps)
+        colors[:,3] = 0.05 + 0.95*((temps-1000)/8000)**2
+        return colors
 
 
 if __name__ == '__main__':
@@ -75,8 +92,10 @@ if __name__ == '__main__':
     np.random.seed(42)
 
     blackHole = [
-                {'coord': [0, 0], 'mass': 1000000, 'svel': 1, 'stars': 2000, 'radstars': 3},
-                {'coord': [3, 3], 'mass': 1000000, 'svel': 0.9, 'stars': 1000, 'radstars': 1}
+                #{'coord': [0, 0], 'mass': 1000000, 'svel': 1, 'stars': 2000, 'radstars': 3},
+                #{'coord': [3, 3], 'mass': 1000000, 'svel': 0.9, 'stars': 1000, 'radstars': 1}
+                {'coord': [0, 0], 'mass': 1000000, 'svel': 1, 'stars': 6000, 'radstars': 6},
+                {'coord': [8, 8], 'mass': 1000000/2, 'svel': 1, 'stars': 1000, 'radstars': 1}
                 ]
     sim = Galaxy(blackHole, display_step = args.display_step)
 
