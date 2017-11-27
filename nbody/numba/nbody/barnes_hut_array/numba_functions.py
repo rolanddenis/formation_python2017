@@ -42,7 +42,7 @@ def buildTree(center0, box_size0, child, cell_center, cell_radius, particles):
             oldchildPath = newchildPath = childPath
             while (oldchildPath == newchildPath):
                 ncell += 1
-                child[childIndex] = nbodies + ncell 
+                child[childIndex] = nbodies + ncell
                 center[:] = cell_center[cell]
                 box_size = .5*cell_radius[cell]
                 if (oldchildPath&1):
@@ -80,6 +80,51 @@ def buildTree(center0, box_size0, child, cell_center, cell_radius, particles):
             child[childIndex] = ip
             child[ip] = ncell
     return ncell
+
+
+@numba.njit
+def sortTree(nbodies, child_array, cell_center, cell_radius):
+    old_child_array = child_array.copy()
+    old_cell_center = cell_center.copy()
+    old_cell_radius = cell_radius.copy()
+
+    depth = 0
+    localPos = np.zeros(2*nbodies, dtype=np.int32)
+    localChild = np.zeros(2*nbodies, dtype=np.int32)
+    localChild[0] = nbodies
+
+    old_localChild = localChild.copy()
+
+    ncell = 1
+
+    while depth >= 0:
+        while localPos[depth] < 4:
+            pos = nbodies + 4*(localChild[depth]-nbodies) + localPos[depth]
+            old_pos = nbodies + 4*(old_localChild[depth]-nbodies) + localPos[depth]
+
+            localPos[depth] += 1
+            old_child = old_child_array[old_pos]
+
+            if old_child >= nbodies: # a cell
+                child = ncell + nbodies
+                ncell += 1
+                child_array[pos] = child
+                cell_radius[child-nbodies, 0] = old_cell_radius[old_child-nbodies, 0]
+                cell_radius[child-nbodies, 1] = old_cell_radius[old_child-nbodies, 1]
+                cell_center[child-nbodies, 0] = old_cell_center[old_child-nbodies, 0]
+                cell_center[child-nbodies, 1] = old_cell_center[old_child-nbodies, 1]
+
+                depth += 1
+                localChild[depth] = child
+                old_localChild[depth] = old_child
+                localPos[depth] = 0
+            elif old_child >= 0:     # a star
+                child_array[pos] = old_child
+                child_array[old_child] = localChild[depth]
+            else:                    # nothing
+                child_array[pos] = old_child
+
+        depth -= 1
 
 # @numba.njit
 # def computeForce(nbodies, child_array, center_of_mass, mass, cell_radius, p):

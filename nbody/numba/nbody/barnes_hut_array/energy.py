@@ -28,6 +28,14 @@ def compute_energy(mass, particles, energy):
     t2 = time.time()
     print_('{:9.4f}ms'.format(1000*(t2-t1)))
 
+    """
+    print_('\tsort tree:     ', end='', flush=True)
+    t1 = time.time()
+    root.sortTree()
+    t2 = time.time()
+    print_('{:9.4f}ms'.format(1000*(t2-t1)))
+    """
+
     print_('\tcompute mass:  ', end='', flush=True)
     t1 = time.time()
     root.computeMassDistribution(particles, mass)

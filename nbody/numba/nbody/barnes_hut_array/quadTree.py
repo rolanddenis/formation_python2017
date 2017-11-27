@@ -19,6 +19,9 @@ class quadArray:
     def buildTree(self, particles):
         self.ncell = numba_functions.buildTree(self.center, self.box_size, self.child, self.cell_center, self.cell_radius, particles)
 
+    def sortTree(self):
+        numba_functions.sortTree(self.nbodies, self.child, self.cell_center, self.cell_radius)
+
     def computeMassDistribution(self, particles, mass):
         self.mass = np.zeros(self.nbodies + self.ncell + 1)
         self.mass[:self.nbodies] = mass
