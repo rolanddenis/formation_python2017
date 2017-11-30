@@ -78,8 +78,8 @@ if __name__ == '__main__':
     np.random.seed(42)
 
     blackHole = [
-                {'coord': [0, 0], 'mass': 1000000, 'svel': 1, 'stars': 2000, 'radstars': 3},
-                {'coord': [3, 3], 'mass': 1000000, 'svel': 0.9, 'stars': 1000, 'radstars': 1}
+                {'coord': [0, 0], 'mass': 1000000, 'svel': 1, 'stars': 2, 'radstars': 3},
+                {'coord': [3, 3], 'mass': 1000000, 'svel': 0.9, 'stars': 1, 'radstars': 1}
                 ]
     sim = Galaxy(blackHole, display_step=args.display_step)
 

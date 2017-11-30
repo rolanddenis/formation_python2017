@@ -168,8 +168,8 @@ def sortTree(nbodies, child_array, cell_center, cell_radius):
 #         depth -= 1
 #     return acc
 
-@numba.njit
-def computeForce(nbodies, child_array, center_of_mass, mass, cell_radius, p):
+#@numba.njit
+def computeForce(nbodies, child_array, center_of_mass, mass, cell_radius, p, lhs_child):
     depth = 0
     localPos = np.zeros(2*nbodies, dtype=np.int32)
     localNode = np.zeros(2*nbodies, dtype=np.int32)
@@ -177,6 +177,8 @@ def computeForce(nbodies, child_array, center_of_mass, mass, cell_radius, p):
 
     pos = p[:2]
     acc = np.zeros(2)
+
+    stats = [0, 0]
 
     while depth >= 0:
         while localPos[depth] < 4:
@@ -187,6 +189,8 @@ def computeForce(nbodies, child_array, center_of_mass, mass, cell_radius, p):
                     Fx, Fy = force(pos, center_of_mass[child], mass[child])
                     acc[0] += Fx
                     acc[1] += Fy
+                    print('star2star (nbodies = {}, lhs_child = {}, rhs_child = {})'.format(nbodies, lhs_child, child))
+                    stats[0] += 1
                 else:
                     dx = center_of_mass[child, 0] - pos[0]
                     dy = center_of_mass[child, 1] - pos[1]
@@ -195,12 +199,171 @@ def computeForce(nbodies, child_array, center_of_mass, mass, cell_radius, p):
                         Fx, Fy = force(pos, center_of_mass[child], mass[child])
                         acc[0] += Fx
                         acc[1] += Fy
+                        print('star2cell (nbodies = {}, lhs_child = {}, rhs_child = {})'.format(nbodies, lhs_child, child))
+                        stats[1] += 1
                     else:
                         depth += 1
                         localNode[depth] = nbodies + 4*(child-nbodies)
                         localPos[depth] = 0
         depth -= 1
-    return acc
+
+    return acc, stats
+
+
+def computeForce2(nbodies, child_array, center_of_mass, mass, cell_center, cell_radius, acc):
+    
+    print()
+    print(child_array[0:nbodies])
+    for i in range(nbodies, child_array[nbodies-1]+1):
+        print('{}: {}', i, child_array[(nbodies + 4*(i-nbodies)):(nbodies + 4*(i-nbodies)+4)])
+
+    #stats = {'star2star': 0, 'star2cell': 0, 'cell2star': 0, 'cell2cell': 0}
+    stats = [0, 0, 0, 0]
+    computeForce2_impl(nbodies, child_array, center_of_mass, mass, cell_center, cell_radius, acc, nbodies, child_array[nbodies-1]+1, nbodies, stats)
+    # ncell instead of child_array[nbodies-1]+1 ?
+    stats = {'star2star': stats[0], 'star2cell': stats[1], 'cell2star': stats[2], 'cell2cell': stats[3]}
+    print(stats)
+
+#@numba.njit
+def computeForce2_impl(nbodies, child_array, center_of_mass, mass, cell_center, cell_radius, acc, lhs_child, lhs_end_child, rhs_child, stats):
+
+    print("nbodies = {}, lhs_child = {}, lhs_end_child = {}, rhs_child = {}".format(nbodies, lhs_child, lhs_end_child, rhs_child))
+    #print()
+
+    ###########################################################################
+    # If both childs are stars
+    if lhs_child < nbodies and rhs_child < nbodies:
+        if lhs_child != rhs_child:
+            Fx, Fy = force(center_of_mass[lhs_child], center_of_mass[rhs_child], mass[rhs_child])
+            acc[lhs_child, 0] += Fx
+            acc[lhs_child, 1] += Fy
+            
+            #print('star2star')
+            print('star2star (nbodies = {}, lhs_child = {}, rhs_child = {})'.format(nbodies, lhs_child,  rhs_child ))
+            stats[0] += 1
+        return
+
+    ###########################################################################
+    # If lhs child is a star and rhs child is a cell
+    if lhs_child < nbodies:
+        sqr_dist = ((center_of_mass[rhs_child, 0] - center_of_mass[lhs_child, 0])**2
+                    + (center_of_mass[rhs_child, 1] - center_of_mass[rhs_child, 1])**2)
+
+        # If theta is low, reduce the rhs cell to its center of mass
+        if cell_radius[rhs_child - nbodies, 0]**2 < 0.25 * sqr_dist:
+            Fx, Fy = force(center_of_mass[lhs_child], center_of_mass[rhs_child], mass[rhs_child])
+            acc[lhs_child, 0] += Fx
+            acc[lhs_child, 1] += Fy
+            print('star2cell (nbodies = {}, lhs_child = {}, rhs_child = {})'.format(nbodies, lhs_child,  rhs_child ))
+            stats[1] += 1
+        # otherwise split the rhs cell.
+        else:
+            for i in range(4):
+                new_child = child_array[nbodies + 4*(rhs_child - nbodies) + i]
+                if new_child >= 0:
+                    computeForce2_impl(nbodies, child_array, center_of_mass, mass, cell_center, cell_radius, acc, lhs_child, lhs_end_child, new_child, stats)
+
+        return
+
+    ###########################################################################
+    # If lhs child is a cell and rhs child is a star,
+    # calculate interaction of the rhs star with each star of the lhs cell.
+    if rhs_child < nbodies:
+        for i in range(nbodies + 4*(lhs_child - nbodies), nbodies + 4*(lhs_end_child - nbodies)):
+            if 0 <= child_array[i] and child_array[i] < nbodies:
+                Fx, Fy = force(center_of_mass[child_array[i]], center_of_mass[rhs_child], mass[rhs_child])
+                acc[child_array[i], 0] += Fx
+                acc[child_array[i], 1] += Fy
+                print('cell2star ( nbodies = {}, lhs_child = {}, rhs_child = {})'.format(nbodies, child_array[i], rhs_child ))
+                stats[2] += 1
+        return
+
+    ###########################################################################
+    # If both childs are cells
+    
+    ###########################################################################
+    # If both childs are same cell, we split both cells
+    if lhs_child == rhs_child:
+        # Calculating next child position
+        array_pos = nbodies + 4*(lhs_child - nbodies)
+        next_end_child = [lhs_end_child] * 4
+        for i in range(2, -1, -1):
+            if child_array[array_pos + i + 1] >= nbodies:
+                next_end_child[i] = child_array[array_pos + i + 1]
+            else:
+                next_end_child[i] = next_end_child[i+1]
+        
+        # Iterating on lhs childs
+        for i in range(4):
+            new_lhs_child = child_array[nbodies + 4*(lhs_child - nbodies) + i]
+            if new_lhs_child >= 0:
+                # Iterating on rhs childs
+                for j in range(4):
+                    new_rhs_child = child_array[nbodies + 4*(rhs_child - nbodies) + j]
+                    if new_rhs_child >= 0:
+                        computeForce2_impl(nbodies, child_array, center_of_mass, mass, cell_center, cell_radius, acc, new_lhs_child, next_end_child[i], new_rhs_child, stats)
+
+        return
+
+    ###########################################################################
+    # If minimal distance is too high, split the rhs cell
+    tmp_theta = cell_radius[rhs_child - nbodies, 0]**2 / 0.5**2
+    
+    sqr_dist_min = (
+          max(abs(cell_center[lhs_child - nbodies, 0] - center_of_mass[rhs_child, 0]) - 0.5*cell_radius[lhs_child - nbodies, 0], 0.)**2
+        + max(abs(cell_center[lhs_child - nbodies, 1] - center_of_mass[rhs_child, 1]) - 0.5*cell_radius[lhs_child - nbodies, 1], 0.)**2
+    )
+
+    if tmp_theta >= sqr_dist_min:
+        
+        for i in range(4):
+            new_child = child_array[nbodies + 4*(rhs_child - nbodies) + i]
+            if new_child >= 0:
+                computeForce2_impl(nbodies, child_array, center_of_mass, mass, cell_center, cell_radius, acc, lhs_child, lhs_end_child, new_child, stats)
+
+        return
+    
+    ###########################################################################
+    # If minimal distance in viable and maximal distance is too high, split the lhs cell
+    sqr_dist_max = (
+          (abs(cell_center[lhs_child - nbodies, 0] - center_of_mass[rhs_child, 0]) + 0.5*cell_radius[lhs_child - nbodies, 0])**2
+        + (abs(cell_center[lhs_child - nbodies, 1] - center_of_mass[rhs_child, 1]) + 0.5*cell_radius[lhs_child - nbodies, 1])**2
+    )
+    
+    if tmp_theta >= sqr_dist_max:
+        array_pos = nbodies + 4*(lhs_child - nbodies)
+
+        # Calculating next child position
+        next_end_child = [lhs_end_child] * 4
+        for i in range(2, -1, -1):
+            if child_array[array_pos + i + 1] >= 0:
+                next_end_child[i] = child_array[array_pos + i + 1]
+            else:
+                next_end_child[i] = next_end_child[i+1]
+        
+        # Iterating on lhs childs
+        for i in range(4):
+            new_child = child_array[nbodies + 4*(lhs_child - nbodies) + i]
+            if new_child >= 0:
+                computeForce2_impl(nbodies, child_array, center_of_mass, mass, cell_center, cell_radius, acc, new_child, next_end_child[i], rhs_child, stats)
+
+        return
+    
+    ###########################################################################
+    # If both distances are viables, then speed-up things
+    # Since the tree is sorted, we should be able to iterate over all stars
+    #   of the current lhs cell easily by just knowing the next cell's index.
+    # In addition, if the stars where sorted, the loop could be vectorized.
+    for i in range(nbodies + 4*(lhs_child - nbodies), nbodies + 4*(lhs_end_child - nbodies)):
+        if 0 <= child_array[i] < nbodies:
+            Fx, Fy = force(center_of_mass[child_array[i]], center_of_mass[rhs_child], mass[rhs_child])
+            acc[child_array[i], 0] += Fx
+            acc[child_array[i], 1] += Fy
+            stats[3] += 1
+            #print('cell2cell')
+            print('cell2cell (nbodies = {},lhs_child = {},  rhs_child = {})'.format(nbodies, child_array[i], rhs_child ))
+    return
+
 
 @numba.njit
 def computeMassDistribution(nbodies, ncell, child, mass, center_of_mass ):
