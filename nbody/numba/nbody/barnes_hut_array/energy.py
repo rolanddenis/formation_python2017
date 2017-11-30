@@ -12,7 +12,7 @@ def compute_force( nbodies, child, center_of_mass, mass, cell_radius, particles,
     print()
     print(child[0:nbodies])
     for i in range(nbodies, center_of_mass.shape[0]):
-        print('{}: {}', i, child[(nbodies + 4*(i-nbodies)):(nbodies + 4*(i-nbodies)+4)])
+        print('{}: {}'.format(i, child[(nbodies + 4*(i-nbodies)):(nbodies + 4*(i-nbodies)+4)]))
 
     stats = [0, 0]
     for i in numba.prange(particles.shape[0]):
@@ -28,7 +28,7 @@ def compute_energy(mass, particles, energy):
     print('compute energy:')
     t_tot = time.time()
 
-    use_new_method = True
+    use_new_method = False
 
     bmin = np.min(particles[: ,:2], axis=0)
     bmax = np.max(particles[: ,:2], axis=0)

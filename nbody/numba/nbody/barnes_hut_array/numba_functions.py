@@ -195,6 +195,7 @@ def computeForce(nbodies, child_array, center_of_mass, mass, cell_radius, p, lhs
                     dx = center_of_mass[child, 0] - pos[0]
                     dy = center_of_mass[child, 1] - pos[1]
                     dist = np.sqrt(dx**2 + dy**2)
+                    print('dist = {}, cell_radius = {}'.format(dist, cell_radius[child - nbodies]))
                     if dist != 0 and cell_radius[child - nbodies]/dist <.5:
                         Fx, Fy = force(pos, center_of_mass[child], mass[child])
                         acc[0] += Fx
