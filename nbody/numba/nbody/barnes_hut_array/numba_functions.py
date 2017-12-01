@@ -233,7 +233,7 @@ def computeForce2_impl(nbodies, child_array, center_of_mass, mass, cell_center, 
     ###########################################################################
     # If both childs are stars
     if lhs_child < nbodies and rhs_child < nbodies:
-        if lhs_child != rhs_child:
+        if lhs_child != rhs_child or True:
             Fx, Fy = force(center_of_mass[lhs_child], center_of_mass[rhs_child], mass[rhs_child])
             acc[lhs_child, 0] += Fx
             acc[lhs_child, 1] += Fy
@@ -306,15 +306,17 @@ def computeForce2_impl(nbodies, child_array, center_of_mass, mass, cell_center, 
         return
 
     ###########################################################################
-    # If minimal distance is too high, split the rhs cell
+    # If maximal distance is too low (<=> rhs cell radius is to high), split the rhs cell
     tmp_theta = cell_radius[rhs_child - nbodies]**2 / 0.5**2
+    print('cell_radius = {}'.format(cell_radius[rhs_child - nbodies]))
     
-    sqr_dist_min = (
-          max(abs(cell_center[lhs_child - nbodies, 0] - center_of_mass[rhs_child, 0]) - 0.5*cell_radius[lhs_child - nbodies], 0.)**2
-        + max(abs(cell_center[lhs_child - nbodies, 1] - center_of_mass[rhs_child, 1]) - 0.5*cell_radius[lhs_child - nbodies], 0.)**2
+    sqr_dist_max = (
+          (abs(cell_center[lhs_child - nbodies, 0] - center_of_mass[rhs_child, 0]) + cell_radius[lhs_child - nbodies])**2
+        + (abs(cell_center[lhs_child - nbodies, 1] - center_of_mass[rhs_child, 1]) + cell_radius[lhs_child - nbodies])**2
     )
-
-    if tmp_theta >= sqr_dist_min:
+    print('sqr_dist_max = {}'.format(np.sqrt(sqr_dist_max)))
+    
+    if tmp_theta >= sqr_dist_max:
         
         for i in range(4):
             new_child = child_array[nbodies + 4*(rhs_child - nbodies) + i]
@@ -324,13 +326,14 @@ def computeForce2_impl(nbodies, child_array, center_of_mass, mass, cell_center, 
         return
     
     ###########################################################################
-    # If minimal distance in viable and maximal distance is too high, split the lhs cell
-    sqr_dist_max = (
-          (abs(cell_center[lhs_child - nbodies, 0] - center_of_mass[rhs_child, 0]) + 0.5*cell_radius[lhs_child - nbodies])**2
-        + (abs(cell_center[lhs_child - nbodies, 1] - center_of_mass[rhs_child, 1]) + 0.5*cell_radius[lhs_child - nbodies])**2
+    # If maximal distance in viable and minimal distance is too low, split the lhs cell
+    sqr_dist_min = (
+          max(abs(cell_center[lhs_child - nbodies, 0] - center_of_mass[rhs_child, 0]) - cell_radius[lhs_child - nbodies], 0.)**2
+        + max(abs(cell_center[lhs_child - nbodies, 1] - center_of_mass[rhs_child, 1]) - cell_radius[lhs_child - nbodies], 0.)**2
     )
+    print('sqr_dist_min = {}'.format(np.sqrt(sqr_dist_min)))
     
-    if tmp_theta >= sqr_dist_max:
+    if tmp_theta >= sqr_dist_min:
         array_pos = nbodies + 4*(lhs_child - nbodies)
 
         # Calculating next child position
