@@ -109,8 +109,7 @@ def sortTree(nbodies, child_array, cell_center, cell_radius):
                 child = ncell + nbodies
                 ncell += 1
                 child_array[pos] = child
-                cell_radius[child-nbodies, 0] = old_cell_radius[old_child-nbodies, 0]
-                cell_radius[child-nbodies, 1] = old_cell_radius[old_child-nbodies, 1]
+                cell_radius[child-nbodies] = old_cell_radius[old_child-nbodies]
                 cell_center[child-nbodies, 0] = old_cell_center[old_child-nbodies, 0]
                 cell_center[child-nbodies, 1] = old_cell_center[old_child-nbodies, 1]
 
@@ -251,7 +250,7 @@ def computeForce2_impl(nbodies, child_array, center_of_mass, mass, cell_center, 
                     + (center_of_mass[rhs_child, 1] - center_of_mass[rhs_child, 1])**2)
 
         # If theta is low, reduce the rhs cell to its center of mass
-        if cell_radius[rhs_child - nbodies, 0]**2 < 0.25 * sqr_dist:
+        if cell_radius[rhs_child - nbodies]**2 < 0.25 * sqr_dist:
             Fx, Fy = force(center_of_mass[lhs_child], center_of_mass[rhs_child], mass[rhs_child])
             acc[lhs_child, 0] += Fx
             acc[lhs_child, 1] += Fy
@@ -308,11 +307,11 @@ def computeForce2_impl(nbodies, child_array, center_of_mass, mass, cell_center, 
 
     ###########################################################################
     # If minimal distance is too high, split the rhs cell
-    tmp_theta = cell_radius[rhs_child - nbodies, 0]**2 / 0.5**2
+    tmp_theta = cell_radius[rhs_child - nbodies]**2 / 0.5**2
     
     sqr_dist_min = (
-          max(abs(cell_center[lhs_child - nbodies, 0] - center_of_mass[rhs_child, 0]) - 0.5*cell_radius[lhs_child - nbodies, 0], 0.)**2
-        + max(abs(cell_center[lhs_child - nbodies, 1] - center_of_mass[rhs_child, 1]) - 0.5*cell_radius[lhs_child - nbodies, 1], 0.)**2
+          max(abs(cell_center[lhs_child - nbodies, 0] - center_of_mass[rhs_child, 0]) - 0.5*cell_radius[lhs_child - nbodies], 0.)**2
+        + max(abs(cell_center[lhs_child - nbodies, 1] - center_of_mass[rhs_child, 1]) - 0.5*cell_radius[lhs_child - nbodies], 0.)**2
     )
 
     if tmp_theta >= sqr_dist_min:
@@ -327,8 +326,8 @@ def computeForce2_impl(nbodies, child_array, center_of_mass, mass, cell_center, 
     ###########################################################################
     # If minimal distance in viable and maximal distance is too high, split the lhs cell
     sqr_dist_max = (
-          (abs(cell_center[lhs_child - nbodies, 0] - center_of_mass[rhs_child, 0]) + 0.5*cell_radius[lhs_child - nbodies, 0])**2
-        + (abs(cell_center[lhs_child - nbodies, 1] - center_of_mass[rhs_child, 1]) + 0.5*cell_radius[lhs_child - nbodies, 1])**2
+          (abs(cell_center[lhs_child - nbodies, 0] - center_of_mass[rhs_child, 0]) + 0.5*cell_radius[lhs_child - nbodies])**2
+        + (abs(cell_center[lhs_child - nbodies, 1] - center_of_mass[rhs_child, 1]) + 0.5*cell_radius[lhs_child - nbodies])**2
     )
     
     if tmp_theta >= sqr_dist_max:
