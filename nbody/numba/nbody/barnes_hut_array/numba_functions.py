@@ -247,7 +247,10 @@ def computeForce2_impl(nbodies, child_array, center_of_mass, mass, cell_center, 
     # If lhs child is a star and rhs child is a cell
     if lhs_child < nbodies:
         sqr_dist = ((center_of_mass[rhs_child, 0] - center_of_mass[lhs_child, 0])**2
-                    + (center_of_mass[rhs_child, 1] - center_of_mass[rhs_child, 1])**2)
+                    + (center_of_mass[rhs_child, 1] - center_of_mass[lhs_child, 1])**2)
+    
+        print('cell_radius = {}'.format(cell_radius[rhs_child - nbodies]))
+        print('dist = {}'.format(np.sqrt(sqr_dist)))
 
         # If theta is low, reduce the rhs cell to its center of mass
         if cell_radius[rhs_child - nbodies]**2 < 0.25 * sqr_dist:
@@ -314,7 +317,7 @@ def computeForce2_impl(nbodies, child_array, center_of_mass, mass, cell_center, 
           (abs(cell_center[lhs_child - nbodies, 0] - center_of_mass[rhs_child, 0]) + cell_radius[lhs_child - nbodies])**2
         + (abs(cell_center[lhs_child - nbodies, 1] - center_of_mass[rhs_child, 1]) + cell_radius[lhs_child - nbodies])**2
     )
-    print('sqr_dist_max = {}'.format(np.sqrt(sqr_dist_max)))
+    print('dist_max = {}'.format(np.sqrt(sqr_dist_max)))
     
     if tmp_theta >= sqr_dist_max:
         
@@ -331,7 +334,7 @@ def computeForce2_impl(nbodies, child_array, center_of_mass, mass, cell_center, 
           max(abs(cell_center[lhs_child - nbodies, 0] - center_of_mass[rhs_child, 0]) - cell_radius[lhs_child - nbodies], 0.)**2
         + max(abs(cell_center[lhs_child - nbodies, 1] - center_of_mass[rhs_child, 1]) - cell_radius[lhs_child - nbodies], 0.)**2
     )
-    print('sqr_dist_min = {}'.format(np.sqrt(sqr_dist_min)))
+    print('dist_min = {}'.format(np.sqrt(sqr_dist_min)))
     
     if tmp_theta >= sqr_dist_min:
         array_pos = nbodies + 4*(lhs_child - nbodies)
